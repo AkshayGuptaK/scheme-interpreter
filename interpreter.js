@@ -1,18 +1,18 @@
-function multiply() {
+function multiply () {
   let result = 1
-  for (let i=0; i<arguments.length; i++) {
+  for (let i = 0; i < arguments.length; i++) {
     result *= arguments[i]
   } return result
 }
 
-function sum() {
+function sum () {
   let result = 0
-  for (let i=0; i<arguments.length; i++) {
+  for (let i = 0; i < arguments.length; i++) {
     result += arguments[i]
   } return result
 }
 
-function subtract() {
+function subtract () {
   if (arguments.length > 1) {
     let result = arguments[0]
     arguments[0] = 0
@@ -23,17 +23,17 @@ function subtract() {
   }
 }
 
-function divide() {
+function divide () {
   if (arguments.length > 1) {
     let result = arguments[0]
     arguments[0] = 1
     return result / multiply.apply(null, arguments)
   } else {
-    return 1/arguments[0]
+    return 1 / arguments[0]
   }
 }
 
-function toArray() {
+function toArray () {
   return Array.from(arguments)
 }
 
@@ -42,10 +42,10 @@ var globalEnvironment = {
   '+': sum,
   '-': subtract,
   '/': divide,
-  '<': (a,b) => (a < b),
-  '<=': (a,b) => (a <= b),
-  '>': (a,b) => (a > b),
-  '>=': (a,b) => (a >= b),
+  '<': (a, b) => (a < b),
+  '<=': (a, b) => (a <= b),
+  '>': (a, b) => (a > b),
+  '>=': (a, b) => (a >= b),
   'abs': Math.abs,
   'expt': Math.pow,
   'max': Math.max,
@@ -53,13 +53,14 @@ var globalEnvironment = {
   'pi': Math.PI,
   'car': (a) => (a[0]),
   'cdr': (a) => (a.slice(1)),
-  'cons': (a,b) => [a] + b,
-  'equal?': (a,b) => a === b,
+  'cons': (a, b) => [a] + b,
+  'equal?': (a, b) => a === b,
   'list': toArray
 } // store any defines here
 
 function interpreterLoop (input, interpreters, environment) {
   let value
+  let returned
   for (let interpreter of interpreters) {
     returned = interpreter(input, environment)
     if (returned != null) {
@@ -74,7 +75,6 @@ function interpreterLoop (input, interpreters, environment) {
 }
 
 function mainInterpreter (input, environment) { // call this
-  //console.log('input is ', input) // DEBUG
   const interpreters = [blockInterpreter, variableInterpreter, constantInterpreter]
   let result = interpreterLoop(input, interpreters, environment)
   return result[0]
@@ -96,17 +96,17 @@ function bracketProcessor (input) { // finds the bracket enclosed block
   let index = 2
   while (openBrackets > 0) {
     if (input[index] === '(') {
-      openBrackets ++
+      openBrackets++
     } else if (input[index] === ')') {
-      openBrackets --
-    } index ++
+      openBrackets--
+    } index++
   } return [input.slice(1, index), input.slice(index)]
 }
 
 function atomizer (input) { // breaks input into subblocks
   let subblocks = []
   let result
-  while (input != ')') {
+  while (input !== ')') {
     if (/^ [(]/.test(input) === true) {
       result = bracketProcessor(input)
       subblocks.push(result[0])
@@ -124,7 +124,7 @@ function atomizer (input) { // breaks input into subblocks
 }
 
 function variableInterpreter (input, environment) {
-  if (Object.keys(environment).length != 0) {
+  if (Object.keys(environment).length !== 0) {
     if (input in environment) {
       return [environment[input], '']
     }
@@ -140,7 +140,7 @@ function processNumber (numberString) {
   let sign = 1
   let number = 0
   let length = 0
-  
+
   if (/-/.test(numberString)) {
     sign = -1
   } numberString = /\d+/.exec(numberString)[0]
@@ -150,7 +150,7 @@ function processNumber (numberString) {
     length++
   } return [sign, number, length]
 }
-  
+
 function constantInterpreter (input, environment) {
   let sign = 1
   let exponentSign = 1
@@ -158,7 +158,7 @@ function constantInterpreter (input, environment) {
   let decimal = 0
   let exponent = 0
   let length = 0
-  
+
   let result = /^\s?(-?(0|\d+))([.]\d+)?([Ee][+-]?\d+)?/.exec(input)
   if (result === null) {
     return null
@@ -184,7 +184,7 @@ function defineInterpreter (input, environment) {
   } else {
     input = input.slice(6)
     let subblocks = atomizer(input)
-    if (subblocks.length != 2) {
+    if (subblocks.length !== 2) {
       throw new SyntaxError('Incorrect number of arguments for define')
     } else {
       globalEnvironment[subblocks[0]] = mainInterpreter(subblocks[1], environment)
@@ -199,7 +199,7 @@ function ifInterpreter (input, environment) {
   } else {
     input = input.slice(2)
     let subblocks = atomizer(input)
-    if (subblocks.length != 3) {
+    if (subblocks.length !== 3) {
       throw new SyntaxError('Incorrect number of arguments for if')
     } else if (mainInterpreter(subblocks[0], environment)) {
       return [mainInterpreter(subblocks[1], environment), '']
@@ -216,7 +216,7 @@ function quoteInterpreter (input, environment) {
   } else {
     input = input.slice(5)
     let subblocks = atomizer(input)
-    if (subblocks.length != 1) {
+    if (subblocks.length !== 1) {
       throw new SyntaxError('Incorrect number of arguments for quote')
     } else {
       return [subblocks[0], '']
@@ -231,20 +231,20 @@ function assignInterpreter (input, environment) {
   } else {
     input = input.slice(4)
     let subblocks = atomizer(input)
-    if (subblocks.length != 2) {
+    if (subblocks.length !== 2) {
       throw new SyntaxError('Incorrect number of arguments for assign')
-    } else if (Object.keys(environment).length != 0) {
+    } else if (Object.keys(environment).length !== 0) {
       if (subblocks[0] in environment) {
-        environment[subblocks[0]] = mainInterpreter(subblocks[1], environment) //check
+        environment[subblocks[0]] = mainInterpreter(subblocks[1], environment) // check
         return [null, '']
       }
     } else if (subblocks[0] in globalEnvironment) {
-      globalEnvironment[subblocks[0]] = mainInterpreter(subblocks[1], environment) //check
+      globalEnvironment[subblocks[0]] = mainInterpreter(subblocks[1], environment) // check
       return [null, '']
     } else {
       throw new SyntaxError('Variable to be assigned is undefined')
     }
-  }  
+  }
 }
 
 function lambdaInterpreter (input, environment) {
@@ -254,20 +254,16 @@ function lambdaInterpreter (input, environment) {
   } else {
     input = input.slice(6)
     let subblocks = atomizer(input)
-    if (subblocks.length != 2) {
+    if (subblocks.length !== 2) {
       throw new SyntaxError('Incorrect number of arguments for lambda')
     } else {
-      if (Object.keys(environment).length != 0) {
-        console.log('env is ', environment) // DEBUG
-        console.log('body is ', subblocks[1])
+      if (Object.keys(environment).length !== 0) {
         for (let variable of Object.keys(environment)) {
-          let exp = new RegExp('[ (](' + variable + ')[ )]', 'g')
-          //don't want it replacing the )( or ' '
-          subblocks[1] = subblocks[1].replace(exp, '$1' + environment[variable])
-        } console.log('body is ', subblocks[1])
-        //goes through body and replaces all matches in environment
+          let exp = new RegExp('\b' + variable + '\b', 'g')
+          subblocks[1] = subblocks[1].replace(exp, environment[variable])
+        } // goes through body and replaces all matches in environment
       }
-      return [{'params': subblocks[0], 'body': subblocks[1]}, '']
+      return [{ 'params': subblocks[0], 'body': subblocks[1] }, '']
     }
   }
 }
@@ -277,7 +273,7 @@ function procInterpreter (input, environment) { // function calls
   let args = []
   let found = false
   let execFunction
-  if (Object.keys(environment).length != 0) {
+  if (Object.keys(environment).length !== 0) {
     if (result[0] in environment) {
       execFunction = environment[result[0]]
       found = true
@@ -294,13 +290,12 @@ function procInterpreter (input, environment) { // function calls
     if (typeof execFunction === 'object') {
       let localscope = {}
       Object.assign(localscope, environment)
-      let params = execFunction.params.replace('/[)(]/g', '').split(' ')
-      for (let i=0; i<params.length; i++) {
+      let params = execFunction.params.replace(/[)(]/g, '').split(' ')
+      for (let i = 0; i < params.length; i++) {
         localscope[params[i]] = args[i]
       }
       return [mainInterpreter(execFunction.body, localscope), '']
-    }
-    else {
+    } else {
       return [execFunction(...args), '']
     }
   } else {
@@ -310,11 +305,11 @@ function procInterpreter (input, environment) { // function calls
 
 function repl () {
   var stdin = process.openStdin()
-  stdin.addListener("data", function(text) {
+  stdin.addListener('data', function (text) {
     try {
       let response = mainInterpreter(text.toString().trim(), {})
       if (response != null) {
-        console.log(response)  
+        console.log(response)
       }
     } catch (err) {
       if (err instanceof SyntaxError) {
