@@ -62,7 +62,13 @@ function lookUp (variable, scope) {
   let value = ''
 
   while (typeof value === 'string') {
-    if (variable in scope) {
+    if (scope === null) {
+      if (variable in globalEnvironment) {
+        value = globalEnvironment[variable]
+      } else {
+        return null
+      }
+    } else if (variable in scope) {
       value = scope[variable]
     } else if ('outer' in scope) {
       return lookUp(variable, scope['outer'])
@@ -72,6 +78,7 @@ function lookUp (variable, scope) {
       return null
     }
   } return value
+}
 
 function interpreterLoop (input, interpreters, scope) {
   let value
@@ -105,12 +112,12 @@ function blockInterpreter (input, scope) {
     return null
   } else {
     input = input.slice(1)
-    //need to check if input still starts with bracket, recursively
     return interpreterLoop(input, interpreters, scope)
   }
 }
 
 function bracketProcessor (input) { // finds the bracket enclosed block
+  console.log('bracket input is', input) // DEBUG
   let openBrackets = 1
   let index = 2
   while (openBrackets > 0) {
@@ -119,20 +126,22 @@ function bracketProcessor (input) { // finds the bracket enclosed block
     } else if (input[index] === ')') {
       openBrackets--
     } index++
-  } return [input.slice(1, index), input.slice(index)]
+  } console.log('slices are', [input.slice(1, index), input.slice(index)]) // D
+  return [input.slice(1, index), input.slice(index)]
 }
 
 function atomizer (input) { // breaks input into subblocks
   let subblocks = []
   let result
   while (input !== ')') {
-    if (/^ [(]/.test(input) === true) {
+    if (/^ ?[(]/.test(input) === true) {
       result = bracketProcessor(input)
       subblocks.push(result[0])
       input = result[1]
     } else {
-      result = /^ [^ )]+/.exec(input)
+      result = /^ ?[^ )]+/.exec(input)
       if (result === null) {
+        console.log('Subblock inputs', input, subblocks) // DEBUG
         throw new SyntaxError('This is not a valid sub block')
       } else {
         subblocks.push(result[0].replace(' ', ''))
@@ -280,11 +289,44 @@ function lambdaInterpreter (input, scope) {
 }
 
 function setOutermost (scope, attach) {
-  if ('outer' in scope) {
-    setOutermost(scope['outer'], attach)
+  if (attach.scope !== null) {
+    if (scope === null) {
+      scope = {}
+      Object.assign(scope, attach.scope)
+    } else if ('outer' in scope) {
+      setOutermost(scope['outer'], attach)
+    } else {
+      scope['outer'] = {}
+      Object.assign(scope['outer'], attach.scope)
+    }
+  }
+}
+
+function funcCall (func, args, scope) {
+  if (typeof func === 'object') {
+    let params = func.params.replace(/[)(]/g, '').split(' ')
+    if (params.length !== args.length) {
+      throw new SyntaxError('Invalid number of arguments supplied')
+    }
+    let localscope
+    if (params.length === 0) {
+      if (scope === null) {
+        localscope = null
+      } else {
+        localscope = {}
+        Object.assign(localscope, scope)
+      }
+    } else {
+      localscope = { 'outer': {} }
+      Object.assign(localscope['outer'], scope)
+      for (let i = 0; i < params.length; i++) {
+        localscope[params[i]] = args[i]
+      }
+    }
+    setOutermost(localscope, func)
+    return [mainInterpreter(func.body, localscope), '']
   } else {
-    scope['outer'] = {}
-    Object.assign(scope['outer'], attach.scope)
+    return [func(...args), '']
   }
 }
 
@@ -293,36 +335,27 @@ function procInterpreter (input, scope) { // function calls
   let result = /^\S+/.exec(input)
   let args = []
   let execFunction = lookUp(result[0], scope)
+  let subblocks
   console.log('execFunction is', execFunction) // DEBUG
   if (execFunction === null) {
-    return null
+    result = /^[(]/.exec(input)
+    if (result === null) {
+      return null
+    } else {
+      subblocks = atomizer('(' + input)
+      execFunction = mainInterpreter(subblocks[0], scope)
+      for (let i = 1; i < subblocks.length; i++) {
+        args.push(mainInterpreter(subblocks[i], scope))
+      }
+      return funcCall(execFunction, args, scope)
+    }
   } else {
     input = input.slice(result[0].length)
-    let subblocks = atomizer(input)
+    subblocks = atomizer(input)
     for (let block of subblocks) {
       args.push(mainInterpreter(block, scope))
     }
-    if (typeof execFunction === 'object') {
-      console.log('Object detected') // DEBUG
-      let params = execFunction.params.replace(/[)(]/g, '').split(' ')
-      if (params.length !== args.length) {
-        throw new SyntaxError('Invalid number of arguments supplied')
-      }
-      let localscope
-      if (params.length === 0) {
-        localscope = scope
-      } else {
-        localscope = { 'outer': scope }
-        for (let i = 0; i < params.length; i++) {
-          localscope[params[i]] = args[i]
-        }
-      }
-      setOutermost(localscope, execFunction)
-      return [mainInterpreter(execFunction.body, localscope), '']
-    } else {
-      console.log('a simple job') // DEBUG
-      return [execFunction(...args), '']
-    }
+    return funcCall(execFunction, args, scope)
   }
 }
 
@@ -330,7 +363,7 @@ function repl () {
   var stdin = process.openStdin()
   stdin.addListener('data', function (text) {
     try {
-      let response = mainInterpreter(text.toString().trim(), { 'null': null })
+      let response = mainInterpreter(text.toString().trim(), null)
       if (response != null) {
         console.log(JSON.stringify(response))
       }
