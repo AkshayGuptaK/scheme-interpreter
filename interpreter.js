@@ -53,31 +53,64 @@ var globalEnvironment = {
   'pi': Math.PI,
   'car': (a) => (a[0]),
   'cdr': (a) => (a.slice(1)),
-  'cons': (a, b) => [a] + b,
+  'cons': (a, b) => [a].concat(b),
   'equal?': (a, b) => a === b,
+  '=': 'equal?',
   'list': toArray
 } // store any defines here
 
-function lookUp (variable, scope) {
+function lookUpValue (variable, scope) {
   let value = ''
 
   while (typeof value === 'string') {
     if (scope === null) {
       if (variable in globalEnvironment) {
         value = globalEnvironment[variable]
+        variable = value
       } else {
         return null
       }
     } else if (variable in scope) {
       value = scope[variable]
+      variable = value
     } else if ('outer' in scope) {
-      return lookUp(variable, scope['outer'])
+      return lookUpValue(variable, scope['outer'])
     } else if (variable in globalEnvironment) {
       value = globalEnvironment[variable]
+      variable = value
     } else {
       return null
     }
   } return value
+}
+
+function lookUpScope (variable, scope) {
+  let value = ''
+  let appScope
+
+  while (typeof value === 'string') {
+    if (scope === null) {
+      if (variable in globalEnvironment) {
+        appScope = globalEnvironment
+        value = globalEnvironment[variable]
+        variable = value
+      } else {
+        return null
+      }
+    } else if (variable in scope) {
+      appScope = scope
+      value = scope[variable]
+      variable = value
+    } else if ('outer' in scope) {
+      return lookUpScope(variable, scope['outer'])
+    } else if (variable in globalEnvironment) {
+      appScope = globalEnvironment
+      value = globalEnvironment[variable]
+      variable = value
+    } else {
+      return null
+    }
+  } return appScope
 }
 
 function interpreterLoop (input, interpreters, scope) {
@@ -97,11 +130,11 @@ function interpreterLoop (input, interpreters, scope) {
 }
 
 function mainInterpreter (input, scope) { // call this
-  console.log('input is', input) // DEBUG
-  console.log('scope is', JSON.stringify(scope)) // DEBUG
+  // console.log('input is', input) // DEBUG
+  // console.log('scope is', JSON.stringify(scope)) // DEBUG
   const interpreters = [blockInterpreter, variableInterpreter, constantInterpreter]
   let result = interpreterLoop(input, interpreters, scope)
-  console.log('result is', result) // DEBUG
+  // console.log('result is', result) // DEBUG
   return result[0]
 }
 
@@ -117,7 +150,7 @@ function blockInterpreter (input, scope) {
 }
 
 function bracketProcessor (input) { // finds the bracket enclosed block
-  console.log('bracket input is', input) // DEBUG
+  // console.log('bracket input is', input) // DEBUG
   let openBrackets = 1
   let index = 2
   while (openBrackets > 0) {
@@ -141,7 +174,7 @@ function atomizer (input) { // breaks input into subblocks
     } else {
       result = /^ ?[^ )]+/.exec(input)
       if (result === null) {
-        console.log('Subblock inputs', input, subblocks) // DEBUG
+        // console.log('Subblock inputs', input, subblocks) // DEBUG
         throw new SyntaxError('This is not a valid sub block')
       } else {
         subblocks.push(result[0].replace(' ', ''))
@@ -152,7 +185,7 @@ function atomizer (input) { // breaks input into subblocks
 }
 
 function variableInterpreter (input, scope) {
-  let result = lookUp(input, scope)
+  let result = lookUpValue(input, scope)
   if (result === null) {
     return null
   } else {
@@ -250,8 +283,9 @@ function quoteInterpreter (input, scope) {
   }
 }
 
-function assignInterpreter (input, scope) { // needs major fixing
+function assignInterpreter (input, scope) {
   let result = /^set!/.exec(input) // and expects a variable and expression
+  let appScope
   if (result === null) {
     return null
   } else {
@@ -259,13 +293,10 @@ function assignInterpreter (input, scope) { // needs major fixing
     let subblocks = atomizer(input)
     if (subblocks.length !== 2) {
       throw new SyntaxError('Incorrect number of arguments for assign')
-    } else if (Object.keys(scope).length !== 0) {
-      if (subblocks[0] in scope) {
-        scope[subblocks[0]] = mainInterpreter(subblocks[1], scope) // check
-        return [null, '']
-      }
-    } else if (subblocks[0] in globalEnvironment) {
-      globalEnvironment[subblocks[0]] = mainInterpreter(subblocks[1], scope) // check
+    }
+    appScope = lookUpScope(subblocks[0], scope)
+    if (appScope !== null) {
+      appScope[subblocks[0]] = mainInterpreter(subblocks[1], scope)
       return [null, '']
     } else {
       throw new SyntaxError('Variable to be assigned is undefined')
@@ -317,8 +348,12 @@ function funcCall (func, args, scope) {
         Object.assign(localscope, scope)
       }
     } else {
-      localscope = { 'outer': {} }
-      Object.assign(localscope['outer'], scope)
+      if (scope === null) {
+        localscope = {}
+      } else {
+        localscope = { 'outer': {} }
+        Object.assign(localscope['outer'], scope)
+      }
       for (let i = 0; i < params.length; i++) {
         localscope[params[i]] = args[i]
       }
@@ -326,17 +361,18 @@ function funcCall (func, args, scope) {
     setOutermost(localscope, func)
     return [mainInterpreter(func.body, localscope), '']
   } else {
+    // console.log(func, args, 'result is', func(...args)) // DEBUG
     return [func(...args), '']
   }
 }
 
 function procInterpreter (input, scope) { // function calls
-  console.log('proc here', JSON.stringify(scope)) // DEBUG
+  // console.log('proc here', JSON.stringify(scope)) // DEBUG
   let result = /^\S+/.exec(input)
   let args = []
-  let execFunction = lookUp(result[0], scope)
+  let execFunction = lookUpValue(result[0], scope)
   let subblocks
-  console.log('execFunction is', execFunction) // DEBUG
+  // console.log('execFunction is', execFunction) // DEBUG
   if (execFunction === null) {
     result = /^[(]/.exec(input)
     if (result === null) {
