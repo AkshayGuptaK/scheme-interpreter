@@ -159,7 +159,7 @@ function bracketProcessor (input) { // finds the bracket enclosed block
     } else if (input[index] === ')') {
       openBrackets--
     } index++
-  } console.log('slices are', [input.slice(1, index), input.slice(index)]) // D
+  } // console.log('slices are', [input.slice(1, index), input.slice(index)]) // DEBUG
   return [input.slice(1, index), input.slice(index)]
 }
 
@@ -292,7 +292,7 @@ function assignInterpreter (input, scope) {
     input = input.slice(4)
     let subblocks = atomizer(input)
     if (subblocks.length !== 2) {
-      throw new SyntaxError('Incorrect number of arguments for assign')
+      throw new SyntaxError('Incorrect number of arguments for set')
     }
     appScope = lookUpScope(subblocks[0], scope)
     if (appScope !== null) {
@@ -305,6 +305,7 @@ function assignInterpreter (input, scope) {
 }
 
 function lambdaInterpreter (input, scope) {
+  // console.log('lambda here', input) // DEBUG
   let result = /^lambda/.exec(input) // expects params and body
   if (result === null) {
     return null
@@ -367,6 +368,7 @@ function funcCall (func, args, scope) {
 }
 
 function procInterpreter (input, scope) { // function calls
+  // console.log('proc run', input) // DEBUG
   // console.log('proc here', JSON.stringify(scope)) // DEBUG
   let result = /^\S+/.exec(input)
   let args = []
